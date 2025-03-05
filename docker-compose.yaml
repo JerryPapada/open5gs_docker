@@ -1,0 +1,314 @@
+services:
+  
+  mongodb:
+    image: mongo:4.4.10
+    container_name: open5gs-mongodb
+    ports:
+      - "0.0.0.0:27017:27017/tcp"
+    # environment:
+    #   MONGO_INITDB_ROOT_USERNAME: user
+    #   MONGO_INITDB_ROOT_PASSWORD: pass
+    restart: unless-stopped
+    networks:
+      open5gs:
+        aliases:
+          - db.open5gs.org
+    volumes:
+      - db_data:/data/db
+      - db_config:/data/configdb
+      - ./webui/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    # command: "mongod --bind_ip 0.0.0.0 --port 27017"
+      
+
+  mongo-express:
+    image: mongo-express
+    container_name: open5gs-mexpress
+    ports:
+      - "8888:8081"
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://mongodb:27017/
+      ME_CONFIG_MONGODB_PORT: 27017
+      # ME_CONFIG_ADMINUSERNAME: user
+      # ME_CONFIG_ADMINPASSWORD: pass
+    networks:
+      open5gs:
+        aliases:
+          - dbadmin.open5gs.org
+    depends_on:
+      - mongodb
+
+  webui:
+      build:
+        context: ./webui
+        args:
+          - OPEN5GS_VERSION=${OPEN5GS_VERSION}
+      env_file:
+        - .env    
+      image: "open5gs-webui:${OPEN5GS_VERSION}"
+      container_name: open5gs-webui
+      depends_on:
+        - mongodb
+      ports:
+        - "0.0.0.0:9999:9999"
+      environment:
+        - DB_URI=mongodb://db.open5gs.org/open5gs
+        - WAIT_HOSTS=mongodb:27017
+      networks:
+        open5gs:
+          aliases:
+            - webui.open5gs.org
+
+  nrf:
+    container_name: nrf
+    image: "nrf:${OPEN5GS_VERSION}"
+    build:
+      context: ./nrf
+      args:
+        - OPEN5GS_VERSION=${OPEN5GS_VERSION}
+    env_file:
+      - .env        
+    command: "-c /open5gs/config/nrf.yaml"
+    networks:
+      open5gs:
+        aliases:
+          - nrf.open5gs.org
+    ports:
+      - "0.0.0.0:8080:80"
+    volumes:
+      - ./configs/basic/nrf.yaml:/open5gs/config/nrf.yaml
+      # - ./logs/nrf.log:/open5gs/install/var/log/open5gs/nrf.log
+
+  ausf:
+    container_name: ausf
+    image: "ausf:${OPEN5GS_VERSION}"
+    build:
+      context: ./ausf
+      args:
+        - OPEN5GS_VERSION=${OPEN5GS_VERSION}
+    env_file:
+      - .env
+    command: "-c /open5gs/config/ausf.yaml"
+    networks:
+      open5gs:
+        aliases:
+          - ausf.open5gs.org
+    ports:
+      - "0.0.0.0:8081:80"
+    volumes:
+      - ./configs/basic/ausf.yaml:/open5gs/config/ausf.yaml
+      # - ./logs/ausf.log:/open5gs/install/var/log/open5gs/ausf.log
+    depends_on:
+      - nrf
+
+  udm:
+    container_name: udm
+    image: "udm:${OPEN5GS_VERSION}"
+    build:
+      context: ./udm
+      args:
+        - OPEN5GS_VERSION=${OPEN5GS_VERSION}
+    env_file:
+      - .env
+    command: "-c /open5gs/config/udm.yaml"
+    networks:
+      open5gs:
+        aliases:
+          - udm.open5gs.org
+    ports:
+      - "0.0.0.0:8082:80"
+    volumes:
+      - ./configs/basic/udm.yaml:/open5gs/config/udm.yaml
+      # - ./logs/udm.log:/open5gs/install/var/log/open5gs/udm.log
+    depends_on:
+      - nrf
+
+  udr:
+    container_name: udr
+    image: "udr:${OPEN5GS_VERSION}"
+    build:
+      context: ./udr
+      args:
+        - OPEN5GS_VERSION=${OPEN5GS_VERSION}
+    env_file:
+      - .env
+    command: "-c /open5gs/config/udr.yaml"
+    restart: unless-stopped
+    networks:
+      open5gs:
+        aliases:
+          - udr.open5gs.org
+    ports:
+      - "0.0.0.0:8083:80"
+    volumes:
+      - ./configs/basic/udr.yaml:/open5gs/config/udr.yaml
+      # - ./logs/udr.log:/open5gs/install/var/log/open5gs/udr.log
+    depends_on:
+      - mongodb
+      - nrf
+
+  nssf:
+    container_name: nssf
+    image: "nssf:${OPEN5GS_VERSION}"
+    build:
+      context: ./nssf
+      args:
+        - OPEN5GS_VERSION=${OPEN5GS_VERSION}
+    env_file:
+      - .env
+    command: "-c /open5gs/config/nssf.yaml"
+    networks:
+      open5gs:
+        aliases:
+          - nssf.open5gs.org
+    ports:
+      - "0.0.0.0:8084:80"
+    volumes:
+      - ./configs/basic/nssf.yaml:/open5gs/config/nssf.yaml
+      # - ./logs/nssf.log:/open5gs/install/var/log/open5gs/nssf.log
+    depends_on:
+      - nrf
+
+  bsf:
+    container_name: bsf
+    image: "bsf:${OPEN5GS_VERSION}"
+    build:
+      context: ./bsf
+      args:
+        - OPEN5GS_VERSION=${OPEN5GS_VERSION}
+    env_file:
+      - .env
+    command: "-c /open5gs/config/bsf.yaml"
+    networks:
+      open5gs:
+        aliases:
+          - bsf.open5gs.org
+    ports:
+      - "0.0.0.0:8085:80"
+    volumes:
+      - ./configs/basic/bsf.yaml:/open5gs/config/bsf.yaml
+      # - ./logs/bsf.log:/open5gs/install/var/log/open5gs/bsf.log
+    depends_on:
+      - nrf
+
+  pcf:
+    container_name: pcf
+    image: "pcf:${OPEN5GS_VERSION}"
+    build:
+      context: ./pcf
+      args:
+        - OPEN5GS_VERSION=${OPEN5GS_VERSION}
+    env_file:
+      - .env
+    command: "-c /open5gs/config/pcf.yaml"
+    restart: unless-stopped
+    networks:
+      open5gs:
+        aliases:
+          - pcf.open5gs.org
+    ports:
+      - "0.0.0.0:8086:80"
+      - "0.0.0.0:9092:9090"
+    volumes:
+      - ./configs/basic/pcf.yaml:/open5gs/config/pcf.yaml
+      # - ./logs/pcf.log:/open5gs/install/var/log/open5gs/pcf.log
+    depends_on:
+      - mongodb
+      - nrf
+
+  amf:
+    container_name: amf
+    image: "amf:${OPEN5GS_VERSION}"
+    build:
+      context: ./amf
+      args:
+        - OPEN5GS_VERSION=${OPEN5GS_VERSION}
+    env_file:
+      - .env
+    command: "-c /open5gs/config/amf.yaml"
+    networks:
+      open5gs:
+        aliases:
+          - amf.open5gs.org
+    volumes:
+      - ./configs/basic/amf.yaml:/open5gs/config/amf.yaml
+      # - ./logs/amf.log:/open5gs/install/var/log/open5gs/amf.log
+    depends_on:
+      - nrf
+    ports:
+      - "0.0.0.0:38412:38412/sctp"
+      - "0.0.0.0:8087:80"
+      - "0.0.0.0:9093:9090"
+
+  smf:
+    container_name: smf
+    image: "smf:${OPEN5GS_VERSION}"
+    build:
+      context: ./smf
+      args:
+        - OPEN5GS_VERSION=${OPEN5GS_VERSION}
+    env_file:
+      - .env
+    command: "-c /open5gs/config/smf.yaml"
+    networks:
+      open5gs:
+        aliases:
+          - smf.open5gs.org
+    ports:
+      - "0.0.0.0:8088:80"
+      - "0.0.0.0:9094:9090"
+    volumes:
+      - ./configs/basic/smf.yaml:/open5gs/config/smf.yaml
+      # - ./logs/smf.log:/open5gs/install/var/log/open5gs/smf.log
+    depends_on:
+      - nrf
+      - upf
+
+  upf:
+    container_name: upf
+    image: "upf:${OPEN5GS_VERSION}"
+    build:
+      context: ./upf
+      args:
+        - OPEN5GS_VERSION=${OPEN5GS_VERSION}
+    command: "-c /open5gs/config/upf.yaml"
+    env_file:
+      - .env    
+    networks:
+      open5gs:
+        aliases:
+          - upf.open5gs.org
+    extra_hosts:
+      docker-host.external-ip: ${DOCKER_HOST_IP}
+    volumes:
+      - ./configs/basic/upf.yaml:/open5gs/config/upf.yaml
+      # - ./logs/upf.log:/open5gs/install/var/log/open5gs/upf.log
+    ports:
+      - "0.0.0.0:2152:2152/udp"
+      - "0.0.0.0:9091:9090"
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+
+  prometheus:
+    container_name: open5gs-prometheus
+    image: prom/prometheus
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - 9090:9090
+    networks:
+      - open5gs
+    
+networks:
+  open5gs:
+    name: open5gs
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.10.10.0/24
+
+volumes:
+  db_data:
+    name: open5gs_db_data
+  db_config:
+    name: open5gs_db_config

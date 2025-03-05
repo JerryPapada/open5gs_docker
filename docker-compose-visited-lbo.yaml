@@ -1,0 +1,205 @@
+services:
+  
+  v-nrf:
+    container_name: v-nrf
+    image: "nrf:${OPEN5GS_VERSION}"
+    build:
+      context: ./nrf
+      args:
+        - OPEN5GS_VERSION=${OPEN5GS_VERSION}
+    env_file:
+      - .env        
+    command: "-c /open5gs/config/v-nrf.yaml"
+    networks:
+      open5gs:
+        aliases:
+          - nrf.5gc.mnc070.mcc999.3gppnetwork.org
+    volumes:
+      - ./configs/roaming/v-nrf.yaml:/open5gs/config/v-nrf.yaml
+      # - ./logs/nrf.log:/open5gs/install/var/log/open5gs/nrf.log
+
+  v-ausf:
+    container_name: v-ausf
+    image: "ausf:${OPEN5GS_VERSION}"
+    build:
+      context: ./ausf
+      args:
+        - OPEN5GS_VERSION=${OPEN5GS_VERSION}
+    env_file:
+      - .env
+    command: "-c /open5gs/config/v-ausf.yaml"
+    networks:
+      open5gs:
+        aliases:
+          - ausf.5gc.mnc070.mcc999.3gppnetwork.org
+    volumes:
+      - ./configs/roaming/v-ausf.yaml:/open5gs/config/v-ausf.yaml
+      # - ./logs/ausf.log:/open5gs/install/var/log/open5gs/ausf.log
+    depends_on:
+      - v-nrf
+
+  v-sepp:
+    container_name: v-sepp
+    image: "sepp:${OPEN5GS_VERSION}"
+    build:
+      context: ./sepp
+      args:
+        - OPEN5GS_VERSION=${OPEN5GS_VERSION}
+    env_file:
+      - .env
+    command: "-c /open5gs/config/v-sepp.yaml"
+    restart: unless-stopped
+    networks:
+      open5gs:
+        aliases:
+          - sepp.5gc.mnc070.mcc999.3gppnetwork.org
+    ports:
+      - "0.0.0.0:80:80"
+    volumes:
+      - ./configs/roaming/v-sepp.yaml:/open5gs/config/v-sepp.yaml
+      # - ./logs/udr.log:/open5gs/install/var/log/open5gs/udr.log
+    depends_on:
+      - v-nrf
+
+  v-nssf:
+    container_name: v-nssf
+    image: "nssf:${OPEN5GS_VERSION}"
+    build:
+      context: ./nssf
+      args:
+        - OPEN5GS_VERSION=${OPEN5GS_VERSION}
+    env_file:
+      - .env
+    command: "-c /open5gs/config/v-nssf.yaml"
+    networks:
+      open5gs:
+        aliases:
+          - nssf.5gc.mnc070.mcc999.3gppnetwork.org
+    volumes:
+      - ./configs/roaming/v-nssf.yaml:/open5gs/config/v-nssf.yaml
+      # - ./logs/nssf.log:/open5gs/install/var/log/open5gs/nssf.log
+    depends_on:
+      - v-nrf
+
+  v-bsf:
+    container_name: v-bsf
+    image: "bsf:${OPEN5GS_VERSION}"
+    build:
+      context: ./bsf
+      args:
+        - OPEN5GS_VERSION=${OPEN5GS_VERSION}
+    env_file:
+      - .env
+    command: "-c /open5gs/config/v-bsf.yaml"
+    networks:
+      open5gs:
+        aliases:
+          - bsf.5gc.mnc070.mcc999.3gppnetwork.org
+    volumes:
+      - ./configs/roaming/v-bsf.yaml:/open5gs/config/v-bsf.yaml
+      # - ./logs/bsf.log:/open5gs/install/var/log/open5gs/bsf.log
+    depends_on:
+      - nrf
+
+  v-pcf:
+    container_name: v-pcf
+    image: "pcf:${OPEN5GS_VERSION}"
+    build:
+      context: ./pcf
+      args:
+        - OPEN5GS_VERSION=${OPEN5GS_VERSION}
+    env_file:
+      - .env
+    command: "-c /open5gs/config/v-pcf.yaml"
+    restart: unless-stopped
+    networks:
+      open5gs:
+        aliases:
+          - pcf.5gc.mnc070.mcc999.3gppnetwork.org
+    volumes:
+      - ./configs/roaming/v-pcf.yaml:/open5gs/config/v-pcf.yaml
+      # - ./logs/pcf.log:/open5gs/install/var/log/open5gs/pcf.log
+    depends_on:
+      - v-nrf
+
+  v-amf:
+    container_name: v-amf
+    image: "amf:${OPEN5GS_VERSION}"
+    build:
+      context: ./amf
+      args:
+        - OPEN5GS_VERSION=${OPEN5GS_VERSION}
+    env_file:
+      - .env
+    command: "-c /open5gs/config/v-amf.yaml"
+    networks:
+      open5gs:
+        aliases:
+          - amf.5gc.mnc070.mcc999.3gppnetwork.org
+    volumes:
+      - ./configs/roaming/v-amf.yaml:/open5gs/config/v-amf.yaml
+      # - ./logs/amf.log:/open5gs/install/var/log/open5gs/amf.log
+    depends_on:
+      - v-nrf
+    ports:
+      - "0.0.0.0:38412:38412/sctp"
+
+  v-smf:
+    container_name: v-smf
+    image: "smf:${OPEN5GS_VERSION}"
+    build:
+      context: ./smf
+      args:
+        - OPEN5GS_VERSION=${OPEN5GS_VERSION}
+    env_file:
+      - .env
+    command: "-c /open5gs/config/v-smf.yaml"
+    networks:
+      open5gs:
+        aliases:
+          - smf.5gc.mnc070.mcc999.3gppnetwork.org
+    volumes:
+      - ./configs/roaming/v-smf.yaml:/open5gs/config/v-smf.yaml
+      # - ./logs/smf.log:/open5gs/install/var/log/open5gs/smf.log
+    depends_on:
+      - v-nrf
+      - v-upf
+
+  v-upf:
+    container_name: v-upf
+    image: "upf:${OPEN5GS_VERSION}"
+    build:
+      context: ./upf
+      args:
+        - OPEN5GS_VERSION=${OPEN5GS_VERSION}
+    command: "-c /open5gs/config/v-upf.yaml"
+    env_file:
+      - .env    
+    networks:
+      open5gs:
+        aliases:
+          - upf.5gc.mnc070.mcc999.3gppnetwork.org
+    extra_hosts:
+      docker-host.external-ip: ${DOCKER_HOST_IP}
+    volumes:
+      - ./configs/roaming/v-upf.yaml:/open5gs/config/v-upf.yaml
+      # - ./logs/upf.log:/open5gs/install/var/log/open5gs/upf.log
+    ports:
+      - "0.0.0.0:2152:2152/udp"
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+   
+networks:
+  open5gs:
+    name: open5gs
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.20.10.0/24
+
+volumes:
+  db_data:
+    name: open5gs_db_data
+  db_config:
+    name: open5gs_db_config

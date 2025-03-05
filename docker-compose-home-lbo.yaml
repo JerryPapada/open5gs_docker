@@ -1,0 +1,175 @@
+services:
+  
+  mongodb:
+    image: mongo:4.4.10
+    container_name: open5gs-mongodb
+    ports:
+      - "0.0.0.0:27017:27017/tcp"
+    # environment:
+    #   MONGO_INITDB_ROOT_USERNAME: user
+    #   MONGO_INITDB_ROOT_PASSWORD: pass
+    restart: unless-stopped
+    networks:
+      open5gs:
+        aliases:
+          - db.open5gs.org
+    volumes:
+      - db_data:/data/db
+      - db_config:/data/configdb
+      - ./webui/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    # command: "mongod --bind_ip 0.0.0.0 --port 27017"
+      
+  mongo-express:
+    image: mongo-express
+    container_name: open5gs-mexpress
+    ports:
+      - "8888:8081"
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://mongodb:27017/
+      ME_CONFIG_MONGODB_PORT: 27017
+      # ME_CONFIG_ADMINUSERNAME: user
+      # ME_CONFIG_ADMINPASSWORD: pass
+    networks:
+      open5gs:
+        aliases:
+          - dbadmin.open5gs.org
+    depends_on:
+      - mongodb
+
+  webui:
+      build:
+        context: ./webui
+        args:
+          - OPEN5GS_VERSION=${OPEN5GS_VERSION}
+      env_file:
+        - .env    
+      image: "open5gs-webui:${OPEN5GS_VERSION}"
+      container_name: open5gs-webui
+      depends_on:
+        - mongodb
+      ports:
+        - "0.0.0.0:9999:9999"
+      environment:
+        - DB_URI=mongodb://db.open5gs.org/open5gs
+        - WAIT_HOSTS=mongodb:27017
+      networks:
+        open5gs:
+          aliases:
+            - webui.open5gs.org
+
+  h-nrf:
+    container_name: h-nrf
+    image: "nrf:${OPEN5GS_VERSION}"
+    build:
+      context: ./nrf
+      args:
+        - OPEN5GS_VERSION=${OPEN5GS_VERSION}
+    env_file:
+      - .env        
+    command: "-c /open5gs/config/h-nrf.yaml"
+    networks:
+      open5gs:
+        aliases:
+          - nrf.5gc.mnc001.mcc001.3gppnetwork.org
+    volumes:
+      - ./configs/roaming/h-nrf.yaml:/open5gs/config/h-nrf.yaml
+      # - ./logs/nrf.log:/open5gs/install/var/log/open5gs/nrf.log
+
+  h-ausf:
+    container_name: h-ausf
+    image: "ausf:${OPEN5GS_VERSION}"
+    build:
+      context: ./ausf
+      args:
+        - OPEN5GS_VERSION=${OPEN5GS_VERSION}
+    env_file:
+      - .env
+    command: "-c /open5gs/config/h-ausf.yaml"
+    networks:
+      open5gs:
+        aliases:
+          - ausf.5gc.mnc001.mcc001.3gppnetwork.org
+    volumes:
+      - ./configs/roaming/h-ausf.yaml:/open5gs/config/h-ausf.yaml
+      # - ./logs/ausf.log:/open5gs/install/var/log/open5gs/ausf.log
+    depends_on:
+      - h-nrf
+
+  h-udm:
+    container_name: h-udm
+    image: "udm:${OPEN5GS_VERSION}"
+    build:
+      context: ./udm
+      args:
+        - OPEN5GS_VERSION=${OPEN5GS_VERSION}
+    env_file:
+      - .env
+    command: "-c /open5gs/config/h-udm.yaml"
+    networks:
+      open5gs:
+        aliases:
+          - udm.5gc.mnc001.mcc001.3gppnetwork.org
+    volumes:
+      - ./configs/roaming/h-udm.yaml:/open5gs/config/h-udm.yaml
+      # - ./logs/udm.log:/open5gs/install/var/log/open5gs/udm.log
+    depends_on:
+      - h-nrf
+
+  h-udr:
+    container_name: h-udr
+    image: "udr:${OPEN5GS_VERSION}"
+    build:
+      context: ./udr
+      args:
+        - OPEN5GS_VERSION=${OPEN5GS_VERSION}
+    env_file:
+      - .env
+    command: "-c /open5gs/config/h-udr.yaml"
+    restart: unless-stopped
+    networks:
+      open5gs:
+        aliases:
+          - udr.5gc.mnc001.mcc001.3gppnetwork.org
+    volumes:
+      - ./configs/roaming/h-udr.yaml:/open5gs/config/h-udr.yaml
+      # - ./logs/udr.log:/open5gs/install/var/log/open5gs/udr.log
+    depends_on:
+      - mongodb
+      - h-nrf
+  
+  h-sepp:
+    container_name: h-sepp
+    image: "sepp:${OPEN5GS_VERSION}"
+    build:
+      context: ./sepp
+      args:
+        - OPEN5GS_VERSION=${OPEN5GS_VERSION}
+    env_file:
+      - .env
+    command: "-c /open5gs/config/h-sepp.yaml"
+    restart: unless-stopped
+    networks:
+      open5gs:
+        aliases:
+          - sepp.5gc.mnc001.mcc001.3gppnetwork.org
+    ports:
+      - "0.0.0.0:80:80"
+    volumes:
+      - ./configs/roaming/h-sepp.yaml:/open5gs/config/h-sepp.yaml
+      # - ./logs/udr.log:/open5gs/install/var/log/open5gs/udr.log
+    depends_on:
+      - h-nrf
+    
+networks:
+  open5gs:
+    name: open5gs
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.10.10.0/24
+
+volumes:
+  db_data:
+    name: open5gs_db_data
+  db_config:
+    name: open5gs_db_config
